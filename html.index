@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strømkalkulator Norge</title>
+    <style>
+        :root {
+            --primary: #0284c7;
+            --secondary: #10b981;
+            --bg: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            background-attachment: fixed;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            color: #1e293b;
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 650px;
+            margin-top: 60px;
+        }
+
+        h1 { text-align: center; margin-bottom: 2rem; color: #0f172a; }
+
+        .form-group { margin-bottom: 1.5rem; }
+
+        label { display: block; font-weight: 700; margin-bottom: 8px; font-size: 0.9rem; }
+
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover { background: #0369a1; transform: translateY(-2px); }
+
+        .result-area {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #f1f5f9;
+            border-radius: 15px;
+            display: none;
+        }
+
+        .price-tag {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .details { font-size: 0.9rem; color: #475569; line-height: 1.6; }
+        
+        .disclaimer { font-size: 0.75rem; color: #94a3b8; margin-top: 15px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚡ Strømkalkulator</h1>
+    
+    <div class="form-group">
+        <label>Boligtype</label>
+        <select id="homeType">
+            <option value="5000">Leilighet (liten)</option>
+            <option value="9000">Leilighet (stor)</option>
+            <option value="16000">Rekkehus / Tomannsbolig</option>
+            <option value="25000" selected>Enebolig</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Antall personer i husholdningen</label>
+        <input type="number" id="people" value="2" min="1">
+    </div>
+
+    <div class="form-group">
+        <label>Oppvarmingskilde</label>
+        <select id="heating">
+            <option value="1.0">Elektrisk (Panelovner)</option>
+            <option value="0.7">Varmepumpe (Luft-til-luft)</option>
+            <option value="1.2">Varmekabler i alle gulv</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Elbil-lading hjemme?</label>
+        <select id="ev">
+            <option value="0">Nei</option>
+            <option value="3000">Ja, 1 bil</option>
+            <option value="6000">Ja, 2 biler</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Gjennomsnittlig spotpris (øre/kWh)</label>
+        <input type="number" id="spotPrice" value="100">
+    </div>
+
+    <button onclick="calculatePower()">Beregn Månedskostnad</button>
+
+    <div id="resultArea" class="result-area">
+        <p style="text-align: center; margin: 0;">Estimert kostnad per måned:</p>
+        <div id="totalPrice" class="price-tag">0 kr</div>
+        
+        <div class="details">
+            <hr>
+            <p id="consumptionText"></p>
+            <p id="breakdownText"></p>
+        </div>
+        <p class="disclaimer">*Beregningen inkluderer estimert nettleie (fast- og energiledd) og strømstøtte.</p>
+    </div>
+</div>
+
+<script>
+    function calculatePower() {
+        // 1. Inndata
+        const baseConsumption = parseFloat(document.getElementById('homeType').value);
+        const people = parseInt(document.getElementById('people').value);
+        const heatingFactor = parseFloat(document.getElementById('heating').value);
+        const evConsumption = parseFloat(document.getElementById('ev').value);
+        const spotPriceOre = parseFloat(document.getElementById('spotPrice').value);
+
+        // 2. Beregn årlig forbruk (kWh)
+        // Vi legger til 1000 kWh per ekstra person utover den første
+        let yearlyKwh = (baseConsumption + ((people - 1) * 1000)) * heatingFactor;
+        yearlyKwh += evConsumption;
+
+        const monthlyKwh = yearlyKwh / 12;
+
+        // 3. Prisberegning (per kWh)
+        const spotPriceNok = spotPriceOre / 100;
+        const påslag = 0.05; // 5 øre påslag inkl mva
+        
+        // Nettleie estimat (Viken/Oslo-snitt)
+        const nettleieEnergiledd = 0.45; // 45 øre per kWh
+        const nettleieFastledd = 300; // Fastbeløp per måned (kapasitetstrinn)
+
+        // Strømstøtte (90% over 73 øre eks mva -> ca 91 øre inkl mva)
+        let stromstotte = 0;
+        if (spotPriceOre > 91.25) {
+            stromstotte = (spotPriceOre - 91.25) * 0.90 / 100;
+        }
+
+        const totalPerKwh = spotPriceNok + påslag + nettleieEnergiledd - stromstotte;
+        const totalMonthly = (monthlyKwh * totalPerKwh) + nettleieFastledd;
+
+        // 4. Vis resultater
+        document.getElementById('resultArea').style.display = 'block';
+        document.getElementById('totalPrice').innerText = Math.round(totalMonthly).toLocaleString('no-NO') + " kr";
+        
+        document.getElementById('consumptionText').innerHTML = 
+            `<strong>Estimert forbruk:</strong> ${Math.round(monthlyKwh)} kWh/måned.`;
+        
+        document.getElementById('breakdownText').innerHTML = 
+            `<strong>Detaljer:</strong><br>` +
+            `- Strømpris: ${Math.round(monthlyKwh * (spotPriceNok + påslag))} kr<br>` +
+            `- Nettleie (fast + energi): ${Math.round((monthlyKwh * nettleieEnergiledd) + nettleieFastledd)} kr<br>` +
+            `- Strømstøtte trukket fra: -${Math.round(monthlyKwh * stromstotte)} kr`;
+    }
+</script>
+
+</body>
+</html>
